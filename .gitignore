@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.env
+.venv/
+venv/
+env/
+alembic/versions/*.pyc
+alembic/versions/__pycache__/
+deploy/postgres_data/
