@@ -89,10 +89,10 @@
       <div class="row">
         <div><label for="provider">Provider</label>
           <select id="provider">
-            <option value="">Auto (by priority, with failover)</option>
-            <option value="gemini">Gemini</option>
+            <option value="gemini" selected>Gemini</option>
             <option value="groq">Groq</option>
             <option value="openai">OpenAI</option>
+            <option value="">Auto (only if the model name exists on every provider)</option>
           </select></div>
         <div><label for="model">Model</label>
           <input id="model" value="gemini-3.8-flash" spellcheck="false"></div>
