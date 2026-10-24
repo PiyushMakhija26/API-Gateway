@@ -95,7 +95,7 @@
             <option value="openai">OpenAI</option>
           </select></div>
         <div><label for="model">Model</label>
-          <input id="model" value="gemini-2.5-flash" spellcheck="false"></div>
+          <input id="model" value="gemini-3.8-flash" spellcheck="false"></div>
       </div>
       <div id="log" aria-live="polite"></div>
       <p class="err" id="chatErr" role="alert"></p>
@@ -211,7 +211,7 @@ document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
 });
 
 /* ---- chat ---- */
-const DEFAULT_MODELS = { gemini: "gemini-2.5-flash", groq: "llama-3.1-8b-instant", openai: "gpt-4o-mini" };
+const DEFAULT_MODELS = { gemini: "gemini-3.8-flash", groq: "llama-3.1-8b-instant", openai: "gpt-4o-mini" };
 $("provider").onchange = () => { const m = DEFAULT_MODELS[$("provider").value]; if (m) $("model").value = m; };
 
 function addMsg(role, text, meta) {
