@@ -141,8 +141,12 @@ async function api(path, { method = "GET", body, auth = true } = {}) {
   const headers = { "Content-Type": "application/json" };
   if (auth && token) headers.Authorization = "Bearer " + token;
   let res;
-  try { res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined }); }
-  catch { throw new Error("Cannot reach the server. If it was idle, wait a minute and retry."); }
+  try { res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(90000) }); }
+  catch (e) {
+    throw new Error(e.name === "TimeoutError"
+      ? "The server took too long to answer (over 90s). It may be waking up or the provider is slow; try again."
+      : "Cannot reach the server. If it was idle, wait a minute and retry.");
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     if (res.status === 401 && auth) signOut();
@@ -227,6 +231,9 @@ $("chatForm").onsubmit = async (e) => {
   history.push({ role: "user", content: text });
   addMsg("user", text);
   $("send").disabled = true;
+  const pending = document.createElement("div");
+  pending.className = "msg bot"; pending.style.opacity = ".6"; pending.textContent = "Thinking…";
+  $("log").appendChild(pending); $("log").scrollTop = $("log").scrollHeight;
   const body = { model: $("model").value.trim(), messages: history };
   if ($("provider").value) body.provider = $("provider").value;
   try {
@@ -238,6 +245,7 @@ $("chatForm").onsubmit = async (e) => {
     history.pop();
     $("chatErr").textContent = err.message;
   }
+  pending.remove();
   $("send").disabled = false;
   $("prompt").focus();
 };
