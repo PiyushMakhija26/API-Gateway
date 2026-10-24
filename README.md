@@ -179,7 +179,7 @@ Responses carry `X-Gateway-Provider` and `X-Gateway-Cache: HIT|MISS` headers. Up
 
 ## ☁️ Free Hosting (Render + Neon)
 
-The app is a single container that only needs a Postgres URL, so it fits entirely on free tiers:
+The app runs on Render's native Python runtime (no Docker needed) and only needs a Postgres URL, so it fits entirely on free tiers:
 
 | Piece | Service | Notes |
 |---|---|---|
@@ -190,9 +190,9 @@ The app is a single container that only needs a Postgres URL, so it fits entirel
 1. Push this repo to GitHub.
 2. In Neon, create a project and copy the connection string (`postgresql://...?sslmode=require`).
 3. In Render choose **New + > Blueprint**, point it at the repo (it reads `render.yaml`), and fill in the prompted values: `DATABASE_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and at least one provider key (Groq has a free API tier). `SECRET_KEY` is generated for you.
-4. Deploy. The container runs `alembic upgrade head` before starting, then serves on `$PORT`. Open `https://<your-service>.onrender.com/v1/docs`.
+4. Deploy. `deploy/start.sh` runs `alembic upgrade head` before starting, then serves on `$PORT`. Open `https://<your-service>.onrender.com/v1/docs`.
 
-Production mode refuses to start with a weak `SECRET_KEY`, hides the load-test routes, and logs JSON. The same image works on any Docker host (Koyeb, Fly.io, Railway, a VPS): set the variables from `.env.example`.
+Production mode refuses to start with a weak `SECRET_KEY`, hides the load-test routes, and logs JSON. The Dockerfile is optional and works on any Docker host (Koyeb, Fly.io, Railway, a VPS): set the variables from `.env.example`.
 
 Limits of the free setup: with `USE_REDIS=false` rate limits and the response cache are per-instance and reset on restart, which is fine on one instance. Add Upstash (`USE_REDIS=true` + `REDIS_URL`) before running more than one.
 

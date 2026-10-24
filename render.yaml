@@ -1,14 +1,16 @@
-# Render Blueprint: free web service. Database (Neon) and Redis (Upstash) are
-# external free tiers; fill the `sync: false` values in the Render dashboard.
+# Render Blueprint: free web service using the native Python runtime (no Docker).
+# Database (Neon) is an external free tier; fill the `sync: false` values in the dashboard.
 services:
   - type: web
     name: ai-api-gateway
-    runtime: docker
+    runtime: python
     plan: free
-    dockerfilePath: ./deploy/Dockerfile
-    dockerContext: .
+    buildCommand: pip install -r requirements.txt
+    startCommand: sh deploy/start.sh
     healthCheckPath: /health/live
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.10"
       - key: ENVIRONMENT
         value: production
       - key: SECRET_KEY
