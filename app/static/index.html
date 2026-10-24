@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Gateway</title>
+<style>
+  :root {
+    --bg:#f6f7f9; --panel:#fff; --text:#16181d; --muted:#667085; --line:#e4e7ec;
+    --accent:#4f46e5; --accent-text:#fff; --user:#eef2ff; --bot:#f2f4f7; --ok:#12805c; --err:#c0362c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0e1013; --panel:#16191e; --text:#eceef2; --muted:#98a0ae; --line:#272b33;
+            --accent:#818cf8; --accent-text:#0e1013; --user:#1f2440; --bot:#1d2128; --ok:#4cc9a0; --err:#ff8a80; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; }
+  header { display:flex; align-items:center; gap:12px; padding:12px 20px; background:var(--panel); border-bottom:1px solid var(--line); }
+  header h1 { font-size:16px; margin:0; flex:1; }
+  .dot { width:9px; height:9px; border-radius:50%; background:var(--muted); display:inline-block; margin-right:6px; }
+  .dot.ok { background:var(--ok); } .dot.bad { background:var(--err); }
+  main { max-width:880px; margin:0 auto; padding:20px 16px 40px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:20px; }
+  nav { display:flex; gap:4px; margin-bottom:16px; }
+  nav button { background:none; border:0; padding:8px 14px; border-radius:8px; color:var(--muted); font:inherit; cursor:pointer; }
+  nav button.active { background:var(--panel); color:var(--text); border:1px solid var(--line); }
+  input, select, textarea, button { font:inherit; color:var(--text); }
+  input, select, textarea { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:9px 11px; width:100%; }
+  input:focus, select:focus, textarea:focus { outline:2px solid var(--accent); outline-offset:-1px; }
+  label { display:block; font-size:13px; color:var(--muted); margin:12px 0 4px; }
+  .btn { background:var(--accent); color:var(--accent-text); border:0; border-radius:8px; padding:9px 16px; cursor:pointer; font-weight:600; }
+  .btn.ghost { background:none; color:var(--text); border:1px solid var(--line); font-weight:500; }
+  .btn:disabled { opacity:.5; cursor:default; }
+  .row { display:flex; gap:10px; align-items:end; flex-wrap:wrap; }
+  .row > * { flex:1; min-width:140px; }
+  .row > .btn { flex:none; }
+  .msg { padding:10px 14px; border-radius:12px; margin:8px 0; white-space:pre-wrap; word-wrap:break-word; max-width:85%; }
+  .msg.user { background:var(--user); margin-left:auto; }
+  .msg.bot { background:var(--bot); }
+  .meta { font-size:12px; color:var(--muted); margin:-4px 0 6px 4px; }
+  #log { min-height:260px; max-height:55vh; overflow-y:auto; padding:4px; }
+  .err { color:var(--err); font-size:14px; margin-top:10px; min-height:20px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:9px 8px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:500; }
+  td input { padding:5px 8px; width:80px; }
+  .url { color:var(--muted); font-size:12px; word-break:break-all; }
+  .hidden { display:none !important; }
+  .auth { max-width:400px; margin:40px auto; }
+  .tabs2 { display:flex; gap:16px; margin-bottom:6px; }
+  .tabs2 button { background:none; border:0; padding:0 0 6px; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; }
+  .tabs2 button.active { color:var(--text); border-color:var(--accent); }
+  footer { text-align:center; color:var(--muted); font-size:13px; margin-top:24px; }
+  footer a { color:inherit; }
+</style>
+</head>
+<body>
+<header>
+  <h1>AI Gateway</h1>
+  <span id="status" title="Backend status"><span class="dot"></span><span id="statusText">checking</span></span>
+  <button id="logout" class="btn ghost hidden">Log out</button>
+</header>
+
+<main>
+  <!-- Sign in / register -->
+  <section id="authView" class="card auth hidden">
+    <div class="tabs2">
+      <button id="tabLogin" class="active" type="button">Log in</button>
+      <button id="tabRegister" type="button">Create account</button>
+    </div>
+    <form id="authForm">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="email" required>
+      <label for="password">Password</label>
+      <input id="password" type="password" minlength="8" maxlength="72" autocomplete="current-password" required>
+      <p class="err" id="authErr" role="alert"></p>
+      <button class="btn" id="authSubmit" style="width:100%">Log in</button>
+    </form>
+  </section>
+
+  <!-- App -->
+  <section id="appView" class="hidden">
+    <nav>
+      <button data-tab="chat" class="active">Chat</button>
+      <button data-tab="providers" id="providersTabBtn" class="hidden">Providers</button>
+    </nav>
+
+    <div id="chatTab" class="card">
+      <div class="row">
+        <div><label for="provider">Provider</label>
+          <select id="provider">
+            <option value="">Auto (by priority, with failover)</option>
+            <option value="gemini">Gemini</option>
+            <option value="groq">Groq</option>
+            <option value="openai">OpenAI</option>
+          </select></div>
+        <div><label for="model">Model</label>
+          <input id="model" value="gemini-2.5-flash" spellcheck="false"></div>
+      </div>
+      <div id="log" aria-live="polite"></div>
+      <p class="err" id="chatErr" role="alert"></p>
+      <form id="chatForm" class="row">
+        <textarea id="prompt" rows="2" placeholder="Send a message" required></textarea>
+        <button class="btn" id="send">Send</button>
+        <button class="btn ghost" id="clear" type="button">Clear</button>
+      </form>
+    </div>
+
+    <div id="providersTab" class="card hidden">
+      <table>
+        <thead><tr><th>Provider</th><th>Priority</th><th>Active</th><th></th></tr></thead>
+        <tbody id="provRows"></tbody>
+      </table>
+      <p class="err" id="provErr" role="alert"></p>
+      <h3 style="margin:18px 0 0;font-size:14px">Add provider</h3>
+      <form id="addForm" class="row">
+        <div><label for="newName">Name</label><input id="newName" required></div>
+        <div style="flex:2"><label for="newUrl">Chat completions URL</label><input id="newUrl" type="url" required placeholder="https://.../v1/chat/completions"></div>
+        <div style="max-width:90px;min-width:80px"><label for="newPrio">Priority</label><input id="newPrio" type="number" value="0"></div>
+        <button class="btn">Add</button>
+      </form>
+    </div>
+  </section>
+
+  <footer>
+    <a href="/v1/docs">API docs</a> · <a href="/admin/metrics/">Metrics</a>
+  </footer>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} },
+};
+let token = store.get("token");
+let mode = "login";
+let history = [];
+
+async function api(path, { method = "GET", body, auth = true } = {}) {
+  const headers = { "Content-Type": "application/json" };
+  if (auth && token) headers.Authorization = "Bearer " + token;
+  let res;
+  try { res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined }); }
+  catch { throw new Error("Cannot reach the server. If it was idle, wait a minute and retry."); }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401 && auth) signOut();
+    const d = data.detail;
+    throw Object.assign(new Error(typeof d === "string" ? d : Array.isArray(d) ? d.map(e => e.msg).join("; ") : "Request failed (" + res.status + ")"), { status: res.status });
+  }
+  return { data, headers: res.headers };
+}
+
+function show() {
+  const signedIn = !!token;
+  $("authView").classList.toggle("hidden", signedIn);
+  $("appView").classList.toggle("hidden", !signedIn);
+  $("logout").classList.toggle("hidden", !signedIn);
+  if (signedIn) detectAdmin();
+}
+function signOut() { token = null; store.set("token", null); history = []; $("log").innerHTML = ""; show(); }
+
+/* ---- status ---- */
+async function checkStatus() {
+  try {
+    const r = await fetch("/health/ready");
+    const ok = r.ok;
+    $("status").firstElementChild.className = "dot " + (ok ? "ok" : "bad");
+    $("statusText").textContent = ok ? "online" : "database down";
+  } catch { $("status").firstElementChild.className = "dot bad"; $("statusText").textContent = "offline"; }
+}
+
+/* ---- auth ---- */
+function setMode(m) {
+  mode = m;
+  $("tabLogin").classList.toggle("active", m === "login");
+  $("tabRegister").classList.toggle("active", m === "register");
+  $("authSubmit").textContent = m === "login" ? "Log in" : "Create account";
+  $("password").autocomplete = m === "login" ? "current-password" : "new-password";
+  $("authErr").textContent = "";
+}
+$("tabLogin").onclick = () => setMode("login");
+$("tabRegister").onclick = () => setMode("register");
+$("authForm").onsubmit = async (e) => {
+  e.preventDefault();
+  $("authErr").textContent = "";
+  $("authSubmit").disabled = true;
+  const creds = { email: $("email").value.trim(), password: $("password").value };
+  try {
+    if (mode === "register") await api("/v1/auth/register", { method: "POST", body: creds, auth: false });
+    const { data } = await api("/v1/auth/login", { method: "POST", body: creds, auth: false });
+    token = data.access_token; store.set("token", token);
+    $("password").value = "";
+    show();
+  } catch (err) { $("authErr").textContent = err.message; }
+  $("authSubmit").disabled = false;
+};
+$("logout").onclick = signOut;
+
+/* ---- tabs ---- */
+document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach((x) => x.classList.toggle("active", x === b));
+  $("chatTab").classList.toggle("hidden", b.dataset.tab !== "chat");
+  $("providersTab").classList.toggle("hidden", b.dataset.tab !== "providers");
+  if (b.dataset.tab === "providers") loadProviders();
+});
+
+/* ---- chat ---- */
+const DEFAULT_MODELS = { gemini: "gemini-2.5-flash", groq: "llama-3.1-8b-instant", openai: "gpt-4o-mini" };
+$("provider").onchange = () => { const m = DEFAULT_MODELS[$("provider").value]; if (m) $("model").value = m; };
+
+function addMsg(role, text, meta) {
+  const d = document.createElement("div");
+  d.className = "msg " + (role === "user" ? "user" : "bot");
+  d.textContent = text;
+  $("log").appendChild(d);
+  if (meta) { const m = document.createElement("div"); m.className = "meta"; m.textContent = meta; $("log").appendChild(m); }
+  $("log").scrollTop = $("log").scrollHeight;
+}
+$("chatForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const text = $("prompt").value.trim();
+  if (!text) return;
+  $("chatErr").textContent = "";
+  $("prompt").value = "";
+  history.push({ role: "user", content: text });
+  addMsg("user", text);
+  $("send").disabled = true;
+  const body = { model: $("model").value.trim(), messages: history };
+  if ($("provider").value) body.provider = $("provider").value;
+  try {
+    const { data, headers } = await api("/v1/gateway/chat/completions", { method: "POST", body });
+    const reply = data.choices?.[0]?.message?.content ?? JSON.stringify(data);
+    history.push({ role: "assistant", content: reply });
+    addMsg("bot", reply, `via ${headers.get("X-Gateway-Provider")} · cache ${headers.get("X-Gateway-Cache")}`);
+  } catch (err) {
+    history.pop();
+    $("chatErr").textContent = err.message;
+  }
+  $("send").disabled = false;
+  $("prompt").focus();
+};
+$("prompt").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("chatForm").requestSubmit(); } };
+$("clear").onclick = () => { history = []; $("log").innerHTML = ""; $("chatErr").textContent = ""; };
+
+/* ---- providers (admin) ---- */
+async function detectAdmin() {
+  try { await api("/v1/admin/providers/"); $("providersTabBtn").classList.remove("hidden"); }
+  catch { $("providersTabBtn").classList.add("hidden"); }
+}
+async function loadProviders() {
+  $("provErr").textContent = "";
+  try {
+    const { data } = await api("/v1/admin/providers/");
+    $("provRows").innerHTML = "";
+    for (const p of data) {
+      const tr = document.createElement("tr");
+      const name = document.createElement("td");
+      name.innerHTML = "<strong></strong><div class='url'></div>";
+      name.querySelector("strong").textContent = p.name;
+      name.querySelector(".url").textContent = p.base_url;
+      const prio = document.createElement("td");
+      const pi = document.createElement("input"); pi.type = "number"; pi.value = p.priority; pi.setAttribute("aria-label", p.name + " priority");
+      prio.appendChild(pi);
+      const act = document.createElement("td");
+      const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = p.is_active; cb.style.width = "auto"; cb.setAttribute("aria-label", p.name + " active");
+      act.appendChild(cb);
+      const save = document.createElement("td");
+      const btn = document.createElement("button"); btn.className = "btn ghost"; btn.textContent = "Save";
+      btn.onclick = async () => {
+        try { await api("/v1/admin/providers/" + p.id, { method: "PATCH", body: { priority: parseInt(pi.value, 10) || 0, is_active: cb.checked } }); btn.textContent = "Saved"; setTimeout(() => btn.textContent = "Save", 1200); }
+        catch (err) { $("provErr").textContent = err.message; }
+      };
+      save.appendChild(btn);
+      tr.append(name, prio, act, save);
+      $("provRows").appendChild(tr);
+    }
+  } catch (err) { $("provErr").textContent = err.message; }
+}
+$("addForm").onsubmit = async (e) => {
+  e.preventDefault();
+  try {
+    await api("/v1/admin/providers/", { method: "POST", body: { name: $("newName").value, base_url: $("newUrl").value, priority: parseInt($("newPrio").value, 10) || 0 } });
+    $("addForm").reset(); loadProviders();
+  } catch (err) { $("provErr").textContent = err.message; }
+};
+
+checkStatus(); setInterval(checkStatus, 30000);
+show();
+</script>
+</body>
+</html>

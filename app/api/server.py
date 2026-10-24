@@ -1,10 +1,11 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import httpx
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import text
 
 from app.core.config import settings
@@ -22,6 +23,8 @@ from app.application.bootstrap import bootstrap
 from app.infrastructure.database import postgres_client
 
 logger = structlog.get_logger("server")
+
+INDEX_HTML = Path(__file__).resolve().parents[1] / "static" / "index.html"
 
 
 @asynccontextmanager
@@ -66,7 +69,7 @@ def get_application() -> FastAPI:
 
     @app.get("/", include_in_schema=False)
     async def root():
-        return {"service": PROJECT_NAME, "docs": f"{API_V1_STR}/docs", "health": "/health/live"}
+        return FileResponse(INDEX_HTML)
 
     @app.get("/health/live", tags=["Health"])
     async def health_live():

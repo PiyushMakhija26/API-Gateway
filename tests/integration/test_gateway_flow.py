@@ -64,6 +64,11 @@ def test_health(make_client):
     assert client.get("/health/ready").json() == {"status": "ready"}
 
 
+def test_frontend_is_served(make_client):
+    r = make_client().get("/")
+    assert r.status_code == 200 and "text/html" in r.headers["content-type"] and "AI Gateway" in r.text
+
+
 def test_register_login_and_bad_credentials(make_client):
     client = make_client()
     user_headers(client)
