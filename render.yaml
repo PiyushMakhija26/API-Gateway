@@ -1,0 +1,31 @@
+# Render Blueprint: free web service. Database (Neon) and Redis (Upstash) are
+# external free tiers; fill the `sync: false` values in the Render dashboard.
+services:
+  - type: web
+    name: ai-api-gateway
+    runtime: docker
+    plan: free
+    dockerfilePath: ./deploy/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health/live
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: USE_REDIS
+        value: "false"
+      - key: REDIS_URL
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: GROQ_API_KEYS
+        sync: false
+      - key: OPENAI_API_KEYS
+        sync: false
+      - key: GEMINI_API_KEYS
+        sync: false

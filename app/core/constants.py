@@ -10,3 +10,7 @@ REQUEST_ID_KEY = "request_id"
 RATE_LIMIT_USER = "user"
 RATE_LIMIT_IP = "ip"
 RATE_LIMIT_API_KEY = "api_key"
+
+# Roles
+ROLE_ADMIN = "admin"
+ROLE_USER = "user"

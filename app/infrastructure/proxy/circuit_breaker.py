@@ -29,7 +29,14 @@ class CircuitBreaker:
                 self._reset()
             return result
         except Exception as e:
-            self._record_failure()
+            # A 4xx from the provider is the caller's fault, not an outage.
+            is_client_error = (
+                isinstance(e, UpstreamProviderException)
+                and 400 <= e.status_code < 500
+                and e.status_code != 429
+            )
+            if not is_client_error:
+                self._record_failure()
             raise e
             
     def _record_failure(self):

@@ -4,7 +4,12 @@ from app.core.config import settings
 engine = create_async_engine(
     settings.SQLALCHEMY_DATABASE_URI,
     echo=(settings.ENVIRONMENT == "development"),
-    future=True
+    future=True,
+    # Serverless Postgres (Neon, Supabase) closes idle connections, so test
+    # each pooled connection before handing it out.
+    pool_pre_ping=True,
+    pool_recycle=300,
+    connect_args=settings.DATABASE_CONNECT_ARGS,
 )
 
 AsyncSessionLocal = async_sessionmaker(

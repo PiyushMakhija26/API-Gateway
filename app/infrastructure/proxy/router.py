@@ -1,9 +1,12 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 from app.domain.entities.route import Route
 from app.domain.entities.provider import Provider
 from app.infrastructure.proxy.provider_registry import ProviderRegistry
 from app.infrastructure.proxy.proxy_engine import ProxyEngine
 from app.infrastructure.proxy.load_balancer import RoundRobinLoadBalancer
+
+# One balancer per distinct key set, so rotation persists across requests.
+_balancers: Dict[Tuple[str, ...], RoundRobinLoadBalancer] = {}
 
 class GatewayRouter:
     def __init__(self, proxy_engine: ProxyEngine):
@@ -21,7 +24,7 @@ class GatewayRouter:
         
         # Load balance across available API keys for this provider
         if api_keys:
-            lb = RoundRobinLoadBalancer(api_keys)
+            lb = _balancers.setdefault(tuple(api_keys), RoundRobinLoadBalancer(api_keys))
             selected_key = lb.get_next()
         else:
             selected_key = ""

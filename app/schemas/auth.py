@@ -1,5 +1,4 @@
-from pydantic import BaseModel, EmailStr
-from uuid import UUID
+from pydantic import BaseModel, EmailStr, Field
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -11,5 +10,4 @@ class UserLoginRequest(BaseModel):
 
 class UserCreateRequest(BaseModel):
     email: EmailStr
-    password: str
-    role_id: UUID
+    password: str = Field(min_length=8, max_length=72)  # bcrypt ignores bytes past 72

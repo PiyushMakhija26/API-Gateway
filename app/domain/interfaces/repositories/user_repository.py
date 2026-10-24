@@ -15,3 +15,11 @@ class IUserRepository(ABC):
     @abstractmethod
     async def create(self, user: User) -> User:
         pass
+
+    @abstractmethod
+    async def get_role_id_by_name(self, name: str) -> Optional[UUID]:
+        pass
+
+    @abstractmethod
+    async def get_role_name(self, role_id: UUID) -> Optional[str]:
+        pass

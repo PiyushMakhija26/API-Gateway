@@ -1,5 +1,5 @@
 from typing import Dict, Any
-from .base import AIGatewayProvider
+from app.domain.interfaces.providers.base import AIGatewayProvider
 
 class GeminiAdapter(AIGatewayProvider):
     @property

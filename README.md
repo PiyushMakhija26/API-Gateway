@@ -148,38 +148,61 @@ erDiagram
 
 ## 🚀 Getting Started
 
-### Prerequisites
-- Docker and Docker Compose installed.
-
-### 1. Spin up the infrastructure
+### Run locally with Docker Compose
 ```bash
 cd deploy
-docker-compose up -d --build
+docker compose up -d --build
 ```
-This will start the API Gateway (`:8000`), PostgreSQL (`:5432`), Redis (`:6379`), and Prometheus (`:9090`).
+This starts the gateway (`:8000`), PostgreSQL, Redis and Prometheus (`:9090`). Migrations run automatically on boot, and a bootstrap admin (`admin@example.com` / `admin12345` unless you override `ADMIN_EMAIL` / `ADMIN_PASSWORD`) plus the default providers are created for you.
 
-### 2. Run Database Migrations
-Apply the SQLAlchemy schemas to the PostgreSQL database:
+- **Swagger UI:** http://localhost:8000/v1/docs
+- **Metrics:** http://localhost:8000/admin/metrics/
+
+### Run locally without Docker
 ```bash
-docker-compose exec gateway alembic revision --autogenerate -m "Initial migration"
-docker-compose exec gateway alembic upgrade head
+pip install -r requirements-dev.txt
+cp .env.example .env          # set USE_REDIS=false if you have no Redis
+alembic upgrade head
+uvicorn app.main:app --reload
 ```
 
-### 3. Access the APIs
-- **Swagger UI (Interactive API Docs):** [http://localhost:8000/v1/docs](http://localhost:8000/v1/docs)
-- **ReDoc:** [http://localhost:8000/v1/redoc](http://localhost:8000/v1/redoc)
-- **Metrics Endpoint:** [http://localhost:8000/admin/metrics](http://localhost:8000/admin/metrics)
+### Using the gateway
+```bash
+# 1. Register and log in (public registration always creates a regular user)
+curl -X POST $URL/v1/auth/register -H 'content-type: application/json' -d '{"email":"me@example.com","password":"a-long-password"}'
+TOKEN=$(curl -s -X POST $URL/v1/auth/login -H 'content-type: application/json' -d '{"email":"me@example.com","password":"a-long-password"}' | jq -r .access_token)
 
----
+# 2. Chat through the gateway. Omit "provider" to let it pick by priority and fail over.
+curl -X POST $URL/v1/gateway/chat/completions -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json'   -d '{"provider":"groq","model":"llama-3.1-8b-instant","messages":[{"role":"user","content":"Hello"}]}'
+```
+Responses carry `X-Gateway-Provider` and `X-Gateway-Cache: HIT|MISS` headers. Upstream keys come from the `OPENAI_API_KEYS`, `GROQ_API_KEYS`, `GEMINI_API_KEYS` environment variables (comma-separate several to round-robin). Admins manage providers under `/v1/admin/providers/`. Streaming is not supported.
+
+## ☁️ Free Hosting (Render + Neon)
+
+The app is a single container that only needs a Postgres URL, so it fits entirely on free tiers:
+
+| Piece | Service | Notes |
+|---|---|---|
+| App | [Render](https://render.com) free web service | Sleeps after ~15 min idle; first request after that takes ~30-60 s |
+| Postgres | [Neon](https://neon.tech) free | Use this rather than Render's free Postgres, which expires |
+| Redis (optional) | [Upstash](https://upstash.com) free | Skip it: set `USE_REDIS=false` for in-process rate limiting and cache |
+
+1. Push this repo to GitHub.
+2. In Neon, create a project and copy the connection string (`postgresql://...?sslmode=require`).
+3. In Render choose **New + > Blueprint**, point it at the repo (it reads `render.yaml`), and fill in the prompted values: `DATABASE_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and at least one provider key (Groq has a free API tier). `SECRET_KEY` is generated for you.
+4. Deploy. The container runs `alembic upgrade head` before starting, then serves on `$PORT`. Open `https://<your-service>.onrender.com/v1/docs`.
+
+Production mode refuses to start with a weak `SECRET_KEY`, hides the load-test routes, and logs JSON. The same image works on any Docker host (Koyeb, Fly.io, Railway, a VPS): set the variables from `.env.example`.
+
+Limits of the free setup: with `USE_REDIS=false` rate limits and the response cache are per-instance and reset on restart, which is fine on one instance. Add Upstash (`USE_REDIS=true` + `REDIS_URL`) before running more than one.
 
 ## 🧪 Running Tests
 
-The project includes an extensive suite of unit and integration tests.
-
 ```bash
-# Run tests inside the Docker container
-docker-compose exec gateway pytest tests/ -v
+pip install -r requirements-dev.txt
+pytest
 ```
+Integration tests run the real app against SQLite with a mocked upstream, so no Postgres, Redis or API keys are needed.
 
 ## 📂 Directory Structure
 
@@ -195,7 +218,8 @@ docker-compose exec gateway pytest tests/ -v
 │   ├── middlewares/              # Rate Limiter, Context, Logging, Metrics
 │   ├── schemas/                  # Pydantic validation (DTOs)
 │   └── security/                 # JWT, Password Hashing
-├── deploy/                       # Dockerfile & docker-compose.yml
+├── deploy/                       # Dockerfile, start.sh, docker-compose.yml
+├── render.yaml                   # One-click Render blueprint
 ├── tests/                        # Pytest suite
 └── requirements.txt              # Dependencies
 ```

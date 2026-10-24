@@ -1,0 +1,13 @@
+.git
+.github
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+.env
+tests
+hey.exe
+load_test.py
+workflows
+*.md

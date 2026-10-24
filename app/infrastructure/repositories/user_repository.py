@@ -4,7 +4,7 @@ from typing import Optional
 from uuid import UUID
 from app.domain.entities.user import User
 from app.domain.interfaces.repositories.user_repository import IUserRepository
-from app.infrastructure.database.models.user import UserModel
+from app.infrastructure.database.models.user import UserModel, RoleModel
 
 class PostgresUserRepository(IUserRepository):
     def __init__(self, session: AsyncSession):
@@ -36,3 +36,11 @@ class PostgresUserRepository(IUserRepository):
         self.session.add(model)
         await self.session.commit()
         return user
+
+    async def get_role_id_by_name(self, name: str) -> Optional[UUID]:
+        result = await self.session.execute(select(RoleModel.id).where(RoleModel.name == name))
+        return result.scalar_one_or_none()
+
+    async def get_role_name(self, role_id: UUID) -> Optional[str]:
+        result = await self.session.execute(select(RoleModel.name).where(RoleModel.id == role_id))
+        return result.scalar_one_or_none()
